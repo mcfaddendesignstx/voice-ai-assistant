@@ -18,7 +18,7 @@ enum AppConfig {
     static var tokenServerURL: String {
         get {
             UserDefaults.standard.string(forKey: "tokenServerURL")
-                ?? "http://192.168.1.100:8081"
+                ?? "http://192.168.86.238:8082"
         }
         set {
             UserDefaults.standard.set(newValue, forKey: "tokenServerURL")

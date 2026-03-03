@@ -29,27 +29,27 @@ services:
   # ── Ollama (LLM) ──────────────────────────────────────────────
   # Local LLM inference. Models are cached in a Docker volume.
   # First run: docker compose exec ollama ollama pull llama3.1:8b
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"                   # Exposed for debugging; agent uses internal URL
-    volumes:
-      - ollama_data:/root/.ollama
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    networks:
-      - voice-ai
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+  # ── Ollama ──────────────────────────────────────────────────────
+  # SKIPPED — using native Windows Ollama (already running on host port 11434).
+  # The agent reaches it via http://host.docker.internal:11434.
+  # To switch back to Docker Ollama, uncomment the block below.
+  #
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   networks:
+  #     - voice-ai
+  #   restart: unless-stopped
 
   # ── faster-whisper (STT) ───────────────────────────────────────
   # Speech-to-Text via OpenAI-compatible /v1/audio/transcriptions.
@@ -71,19 +71,19 @@ services:
       - voice-ai
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 15
-      start_period: 60s            # Model loading takes time
+      start_period: 120s           # Model loading takes time
 
   # ── Kokoro (TTS) ──────────────────────────────────────────────
   # Text-to-Speech via OpenAI-compatible /v1/audio/speech.
   # Streams audio back for low-latency playback.
   kokoro:
-    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
-    environment:
-      - DEVICE=cuda
+    build: ./kokoro
+    # Custom image: kokoro-fastapi-gpu + PyTorch cu128 for SM_120 (Blackwell/RTX 5090).
+    # If the build fails, fall back to: image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
     deploy:
       resources:
         reservations:
@@ -95,11 +95,11 @@ services:
       - voice-ai
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8880/health"]
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8880/health')\" 2>/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 15
-      start_period: 60s
+      retries: 20
+      start_period: 120s
 
   # ── Token Server ───────────────────────────────────────────────
   # Lightweight FastAPI service that mints LiveKit JWTs.
@@ -107,7 +107,7 @@ services:
   token-server:
     build: ./token-server
     ports:
-      - "8081:8081"
+      - "8082:8082"
     environment:
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
@@ -128,20 +128,20 @@ services:
       - LIVEKIT_URL=${LIVEKIT_URL:-ws://livekit-server:7880}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434/v1}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
       - WHISPER_BASE_URL=${WHISPER_BASE_URL:-http://whisper:8000/v1}
       - WHISPER_MODEL=${WHISPER_MODEL:-Systran/faster-whisper-large-v3}
       - KOKORO_BASE_URL=${KOKORO_BASE_URL:-http://kokoro:8880/v1}
       - KOKORO_MODEL=${KOKORO_MODEL:-kokoro}
       - KOKORO_VOICE=${KOKORO_VOICE:-af_heart}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - voice-ai
     restart: unless-stopped
     depends_on:
       livekit-server:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
 
 networks:
