@@ -6,25 +6,12 @@
 
 services:
   # ── LiveKit Server ─────────────────────────────────────────────
-  # WebRTC media server — routes audio/video between iPhone and Agent.
-  # Exposes HTTP (7880), TCP ICE (7881), and UDP media ports.
-  livekit-server:
-    image: livekit/livekit-server:latest
-    command: --config /etc/livekit.yaml --bind 0.0.0.0
-    ports:
-      - "7880:7880"                     # HTTP + WebSocket signaling
-      - "7881:7881"                     # TCP ICE fallback
-      - "50000-50020:50000-50020/udp"   # WebRTC media (keep range small)
-    volumes:
-      - ./livekit.yaml:/etc/livekit.yaml:ro
-    networks:
-      - voice-ai
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7880"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+  # NATIVE — runs directly on Windows (not in Docker).
+  # Docker Desktop for Windows cannot hairpin UDP, which breaks WebRTC ICE
+  # between containers and the host. Running LiveKit natively solves this.
+  #
+  # Start it with:  .\livekit-bin\livekit-server.exe --config livekit.yaml
+  # It listens on :7880 (HTTP/WS), :7881 (TCP ICE), :50000-50020 (UDP media).
 
   # ── Ollama (LLM) ──────────────────────────────────────────────
   # Local LLM inference. Models are cached in a Docker volume.
@@ -115,9 +102,9 @@ services:
     networks:
       - voice-ai
     restart: unless-stopped
-    depends_on:
-      livekit-server:
-        condition: service_healthy
+    # LiveKit runs natively on the host — no Docker dependency needed.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # ── LiveKit Agent ──────────────────────────────────────────────
   # Python agent that joins every LiveKit room and provides the
@@ -125,7 +112,7 @@ services:
   agent:
     build: ./agent
     environment:
-      - LIVEKIT_URL=${LIVEKIT_URL:-ws://livekit-server:7880}
+      - LIVEKIT_URL=${LIVEKIT_URL:-ws://host.docker.internal:7880}
       - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
       - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
@@ -140,9 +127,7 @@ services:
     networks:
       - voice-ai
     restart: unless-stopped
-    depends_on:
-      livekit-server:
-        condition: service_healthy
+    # LiveKit runs natively on the host — no Docker dependency needed.
 
 networks:
   voice-ai:

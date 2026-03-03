@@ -14,7 +14,7 @@ import os
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from livekit.api import AccessToken, VideoGrants
+from livekit.api import AccessToken, VideoGrants, RoomAgentDispatch, RoomConfiguration
 
 app = FastAPI(title="LiveKit Token Server")
 
@@ -49,7 +49,15 @@ async def get_token(
                 room=room,
                 can_publish=True,
                 can_subscribe=True,
+                can_publish_data=True,
             )
+        )
+        .with_room_config(
+            RoomConfiguration(
+                agents=[
+                    RoomAgentDispatch(agent_name="voice-assistant")
+                ],
+            ),
         )
     )
 

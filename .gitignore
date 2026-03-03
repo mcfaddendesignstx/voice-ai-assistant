@@ -20,6 +20,13 @@ ios/build/
 # Docker
 ollama_data/
 
+# LiveKit native binary (downloaded, not tracked)
+livekit-bin/
+livekit-server.zip
+
+# Web test page (dev only)
+web-test/
+
 # IDE
 .idea/
 .vscode/

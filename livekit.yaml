@@ -9,8 +9,10 @@ rtc:
   tcp_port: 7881
   port_range_start: 50000
   port_range_end: 50020
-  # Set to true when exposing through a public IP or Tailscale
+  # Running natively on Windows — LiveKit binds directly to host interfaces.
+  # No Docker NAT issues; ICE candidates use real host IPs automatically.
   use_external_ip: false
+  enable_loopback_candidate: true
 
 # API key : secret pairs — keep secret in production
 keys:

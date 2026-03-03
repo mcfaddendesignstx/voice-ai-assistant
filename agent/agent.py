@@ -16,7 +16,9 @@ Environment variables (set via docker-compose.yml / .env):
 import os
 import logging
 
+import httpx
 from dotenv import load_dotenv
+import openai as openai_pkg
 
 from livekit import agents
 from livekit.agents import AgentSession, Agent, AgentServer, room_io
@@ -54,25 +56,46 @@ server = AgentServer()
 async def entrypoint(ctx: agents.JobContext):
     """Called once per LiveKit room that requests an agent."""
 
+    # Long timeout for first-request model loading (whisper, ollama, kokoro)
+    _timeout = httpx.Timeout(timeout=120.0, connect=30.0)
+
     # --- STT: faster-whisper via OpenAI-compatible API ---
+    stt_client = openai_pkg.AsyncClient(
+        base_url=os.getenv("WHISPER_BASE_URL", "http://whisper:8000/v1"),
+        api_key="not-needed",
+        timeout=_timeout,
+    )
     stt = openai.STT(
         model=os.getenv("WHISPER_MODEL", "Systran/faster-whisper-large-v3"),
         base_url=os.getenv("WHISPER_BASE_URL", "http://whisper:8000/v1"),
-        api_key="not-needed",  # local server, no auth
+        api_key="not-needed",
+        client=stt_client,
     )
 
     # --- LLM: Ollama via OpenAI-compatible API ---
+    llm_client = openai_pkg.AsyncClient(
+        base_url=os.getenv("OLLAMA_BASE_URL", "http://ollama:11434/v1"),
+        api_key="ollama",
+        timeout=_timeout,
+    )
     llm = openai.LLM.with_ollama(
         model=os.getenv("OLLAMA_MODEL", "llama3.1:8b"),
         base_url=os.getenv("OLLAMA_BASE_URL", "http://ollama:11434/v1"),
+        client=llm_client,
     )
 
     # --- TTS: Kokoro via OpenAI-compatible API ---
+    tts_client = openai_pkg.AsyncClient(
+        base_url=os.getenv("KOKORO_BASE_URL", "http://kokoro:8880/v1"),
+        api_key="not-needed",
+        timeout=_timeout,
+    )
     tts = openai.TTS(
         model=os.getenv("KOKORO_MODEL", "kokoro"),
         voice=os.getenv("KOKORO_VOICE", "af_heart"),
         base_url=os.getenv("KOKORO_BASE_URL", "http://kokoro:8880/v1"),
         api_key="not-needed",
+        client=tts_client,
     )
 
     # --- VAD: Silero (runs on CPU inside this container) ---
@@ -91,12 +114,12 @@ async def entrypoint(ctx: agents.JobContext):
         agent=VoiceAssistant(),
     )
 
-    # Generate an initial greeting so the user hears something
-    await session.generate_reply(
+    logger.info("Agent session started in room %s", ctx.room.name)
+
+    # Generate an initial greeting (fire-and-forget — don't block the entrypoint)
+    session.generate_reply(
         instructions="Greet the user warmly and let them know you're ready to help."
     )
-
-    logger.info("Agent session started in room %s", ctx.room.name)
 
 
 # ─── CLI entry point ─────────────────────────────────────────────
