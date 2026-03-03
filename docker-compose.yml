@@ -1,0 +1,152 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  Voice AI Assistant — Docker Compose Stack                      ║
+# ║  Requires: Docker Desktop with NVIDIA GPU support enabled       ║
+# ║  GPU: RTX 5090 (Blackwell) — needs driver 570+, CUDA 12.8+     ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
+services:
+  # ── LiveKit Server ─────────────────────────────────────────────
+  # WebRTC media server — routes audio/video between iPhone and Agent.
+  # Exposes HTTP (7880), TCP ICE (7881), and UDP media ports.
+  livekit-server:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml --bind 0.0.0.0
+    ports:
+      - "7880:7880"                     # HTTP + WebSocket signaling
+      - "7881:7881"                     # TCP ICE fallback
+      - "50000-50020:50000-50020/udp"   # WebRTC media (keep range small)
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    networks:
+      - voice-ai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7880"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Ollama (LLM) ──────────────────────────────────────────────
+  # Local LLM inference. Models are cached in a Docker volume.
+  # First run: docker compose exec ollama ollama pull llama3.1:8b
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"                   # Exposed for debugging; agent uses internal URL
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - voice-ai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── faster-whisper (STT) ───────────────────────────────────────
+  # Speech-to-Text via OpenAI-compatible /v1/audio/transcriptions.
+  # Uses float16 compute — safest on new Blackwell GPUs.
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cuda
+    environment:
+      - WHISPER__MODEL=${WHISPER_MODEL:-Systran/faster-whisper-large-v3}
+      - WHISPER__DEVICE=cuda
+      - WHISPER__COMPUTE_TYPE=float16
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - voice-ai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s            # Model loading takes time
+
+  # ── Kokoro (TTS) ──────────────────────────────────────────────
+  # Text-to-Speech via OpenAI-compatible /v1/audio/speech.
+  # Streams audio back for low-latency playback.
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+    environment:
+      - DEVICE=cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - voice-ai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8880/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  # ── Token Server ───────────────────────────────────────────────
+  # Lightweight FastAPI service that mints LiveKit JWTs.
+  # The iOS app calls this before connecting to LiveKit.
+  token-server:
+    build: ./token-server
+    ports:
+      - "8081:8081"
+    environment:
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - LIVEKIT_EXTERNAL_URL=${LIVEKIT_EXTERNAL_URL}
+    networks:
+      - voice-ai
+    restart: unless-stopped
+    depends_on:
+      livekit-server:
+        condition: service_healthy
+
+  # ── LiveKit Agent ──────────────────────────────────────────────
+  # Python agent that joins every LiveKit room and provides the
+  # STT → LLM → TTS voice pipeline.
+  agent:
+    build: ./agent
+    environment:
+      - LIVEKIT_URL=${LIVEKIT_URL:-ws://livekit-server:7880}
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434/v1}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
+      - WHISPER_BASE_URL=${WHISPER_BASE_URL:-http://whisper:8000/v1}
+      - WHISPER_MODEL=${WHISPER_MODEL:-Systran/faster-whisper-large-v3}
+      - KOKORO_BASE_URL=${KOKORO_BASE_URL:-http://kokoro:8880/v1}
+      - KOKORO_MODEL=${KOKORO_MODEL:-kokoro}
+      - KOKORO_VOICE=${KOKORO_VOICE:-af_heart}
+    networks:
+      - voice-ai
+    restart: unless-stopped
+    depends_on:
+      livekit-server:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+
+networks:
+  voice-ai:
+    driver: bridge
+
+volumes:
+  ollama_data:

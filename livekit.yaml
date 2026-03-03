@@ -1,0 +1,20 @@
+# LiveKit Server Configuration
+# Docs: https://docs.livekit.io/home/self-hosting/deployment/
+
+port: 7880
+bind_addresses:
+  - ""
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50020
+  # Set to true when exposing through a public IP or Tailscale
+  use_external_ip: false
+
+# API key : secret pairs — keep secret in production
+keys:
+  devkey: secret_change_me_in_production
+
+logging:
+  level: info

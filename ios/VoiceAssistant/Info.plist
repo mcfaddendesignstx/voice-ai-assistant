@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Microphone permission — iOS requires a reason string -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Voice Assistant needs microphone access for real-time voice chat with your AI assistant.</string>
+
+    <!-- Local network permission — needed for connecting to your Docker host -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Voice Assistant connects to your self-hosted server on the local network.</string>
+
+    <!-- Bonjour services (may be needed for local network access) -->
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_livekit._tcp</string>
+    </array>
+
+    <!-- Allow insecure HTTP connections to local servers -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+        <!-- For development: allow all HTTP. Remove in production. -->
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+</dict>
+</plist>

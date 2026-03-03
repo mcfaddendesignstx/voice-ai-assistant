@@ -1,0 +1,26 @@
+.env
+*.pyc
+__pycache__/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
+
+# Xcode
+ios/VoiceAssistant.xcodeproj/xcuserdata/
+ios/VoiceAssistant.xcodeproj/project.xcworkspace/xcuserdata/
+ios/*.xcworkspace/xcuserdata/
+ios/DerivedData/
+ios/build/
+
+# Docker
+ollama_data/
+
+# IDE
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,10 @@
+# LiveKit Agents framework (v1.x) with codec support for audio
+livekit-agents[codecs]~=1.0
+# OpenAI-compatible plugin — talks to Ollama, faster-whisper, Kokoro
+livekit-plugins-openai~=1.0
+# Silero VAD — detects when the user starts/stops speaking
+livekit-plugins-silero~=1.0
+# Turn detector — improves conversation flow (knows when user is done)
+livekit-plugins-turn-detector~=1.0
+# Env file loading
+python-dotenv~=1.0
