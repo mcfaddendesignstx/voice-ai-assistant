@@ -30,6 +30,7 @@ print('PyTorch:', torch.__version__); \
 print('CUDA:', torch.version.cuda); \
 print('CUDA available:', torch.cuda.is_available())"
 
+# COPY last so server.py edits don't invalidate heavy cache layers above
 COPY server.py .
 
 EXPOSE 8890

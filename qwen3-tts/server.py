@@ -25,23 +25,26 @@ logger = logging.getLogger("qwen3-tts")
 
 MODEL_NAME = os.getenv("QWEN3_TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice")
 DEVICE = os.getenv("QWEN3_TTS_DEVICE", "cuda:0")
-DEFAULT_SPEAKER = os.getenv("QWEN3_TTS_SPEAKER", "Ethan")
+DEFAULT_SPEAKER = os.getenv("QWEN3_TTS_SPEAKER", "aiden")
 DEFAULT_LANGUAGE = os.getenv("QWEN3_TTS_LANGUAGE", "English")
 
 # Speaker map: OpenAI-style voice names → Qwen3 speaker names
+# Supported speakers for 0.6B CustomVoice:
+# aiden, dylan, eric, ono_anna, ryan, serena, sohee, uncle_fu, vivian
 VOICE_MAP = {
-    "ethan": "Ethan",
-    "ryan": "Ryan",
-    "vivian": "Vivian",
-    "claire": "Claire",
-    "laura": "Laura",
-    "sophia": "Sophia",
-    "chelsie": "Chelsie",
-    "alloy": "Ethan",      # OpenAI alias
-    "echo": "Ryan",        # OpenAI alias
-    "nova": "Vivian",      # OpenAI alias
-    "onyx": "Ethan",       # OpenAI alias
-    "am_adam": "Ethan",    # Kokoro alias for seamless switching
+    "aiden": "aiden",
+    "dylan": "dylan",
+    "eric": "eric",
+    "ryan": "ryan",
+    "serena": "serena",
+    "vivian": "vivian",
+    "sohee": "sohee",
+    "alloy": "aiden",      # OpenAI alias → male
+    "echo": "ryan",        # OpenAI alias → male
+    "nova": "vivian",      # OpenAI alias → female
+    "onyx": "eric",        # OpenAI alias → male
+    "am_adam": "aiden",    # Kokoro alias for seamless switching
+    "ethan": "aiden",      # 1.7B name → 0.6B fallback
 }
 
 model = None
