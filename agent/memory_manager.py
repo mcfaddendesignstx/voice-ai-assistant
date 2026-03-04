@@ -94,7 +94,8 @@ class MemoryManager:
 
     async def extract_metadata(self, content: str) -> dict:
         """Extract structured metadata via OpenRouter → gpt-4o-mini.
-        Runs in parallel with embedding per Nate's architecture."""
+        Runs in parallel with embedding per Nate's architecture.
+        Includes confidence score (0.0-1.0) and structured memory types."""
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
@@ -110,7 +111,13 @@ class MemoryManager:
                                 "role": "user",
                                 "content": (
                                     "Extract metadata from this thought. Return ONLY valid JSON with these fields:\n"
-                                    "- type: one of [person_note, decision, insight, meeting_debrief, ai_save, general]\n"
+                                    "- type: one of [fact, preference, relationship, principle, commitment, moment, skill]\n"
+                                    "  fact=objective info about the user, preference=what they like/dislike/want,\n"
+                                    "  relationship=info about people in their life, principle=values/beliefs they hold,\n"
+                                    "  commitment=something they plan or promised, moment=notable event/experience,\n"
+                                    "  skill=ability or expertise they have\n"
+                                    "- confidence: float 0.0-1.0. Use 0.9+ if user stated this directly. "
+                                    "Use 0.6-0.8 if clearly implied. Use 0.3-0.5 if inferred from patterns.\n"
                                     "- topics: array of topic strings\n"
                                     "- people: array of person names mentioned\n"
                                     "- action_items: array of action items if any\n\n"
@@ -124,13 +131,15 @@ class MemoryManager:
                 )
                 resp.raise_for_status()
                 raw = resp.json()["choices"][0]["message"]["content"].strip()
-                # Strip markdown fences if present
                 if raw.startswith("```"):
                     raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-                return json.loads(raw)
+                data = json.loads(raw)
+                if "confidence" not in data:
+                    data["confidence"] = 0.7
+                return data
         except Exception as e:
             logger.debug("Metadata extraction failed (non-fatal): %s", e)
-            return {"type": "general", "topics": [], "people": [], "action_items": []}
+            return {"type": "fact", "confidence": 0.7, "topics": [], "people": [], "action_items": []}
 
     # ── Storage ────────────────────────────────────────────────────
 
@@ -267,7 +276,16 @@ class MemoryManager:
 
         lines = ["[MEMORY CONTEXT — from previous conversations]"]
         for t in merged:
-            lines.append(f"- {t['content']}")
+            meta = t.get("metadata") or {}
+            mem_type = meta.get("type", "")
+            confidence = meta.get("confidence", 1.0)
+            source = meta.get("source", "")
+            # Skip very low confidence inferences from voice sessions
+            if source == "voice_conversation" and confidence < 0.4:
+                continue
+            label = f"[{mem_type}]" if mem_type else ""
+            conf_note = " (inferred)" if confidence < 0.6 else ""
+            lines.append(f"- {label} {t['content']}{conf_note}".strip())
         lines.append("[END MEMORY CONTEXT]")
         return "\n".join(lines)
 
@@ -296,13 +314,14 @@ class MemoryManager:
                             {
                                 "role": "user",
                                 "content": (
-                                    "Extract 3-7 key facts, preferences, or important information "
-                                    "from this conversation that would be useful to remember in "
-                                    "future conversations. Format as a simple bulleted list. "
-                                    "Focus on: facts about the user, decisions made, preferences "
-                                    "expressed, important context.\n\n"
+                                    "Extract 3-7 memorable items from this conversation. "
+                                    "For each item prefix it with its type in brackets: "
+                                    "[fact], [preference], [relationship], [principle], [commitment], [moment], or [skill].\n"
+                                    "Focus on: concrete facts the user stated, preferences they expressed, "
+                                    "decisions made, people mentioned, things they committed to.\n"
+                                    "Only include things the user stated or clearly implied — no speculation.\n\n"
                                     f"Conversation:\n{conversation_history}\n\n"
-                                    "Return only the bullet points, nothing else:"
+                                    "Return only the prefixed bullet points, nothing else:"
                                 ),
                             }
                         ],
