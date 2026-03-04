@@ -96,7 +96,7 @@ class VoiceAssistant(Agent):
         memory_context = await self._memory.build_memory_context(user_text)
         if memory_context:
             turn_ctx.add_message(role="system", content=memory_context)
-            logger.debug("Injected memory context (%d chars)", len(memory_context))
+            logger.info("Injected memory context (%d chars)", len(memory_context))
 
         # Track conversation for end-of-session summary
         self._conversation_history.append(f"User: {user_text}")
@@ -137,14 +137,33 @@ async def entrypoint(ctx: agents.JobContext):
         client=stt_client,
     )
 
-    # --- LLM: Gemini (cloud) or Ollama (local fallback) ---
+    # --- LLM: route by model selector (gemini-flash | claude-haiku | gpt-4o-mini) ---
+    model_choice = (getattr(ctx.job, "metadata", None) or "").strip() or "gemini-flash"
+    logger.info("Model selected: %s", model_choice)
+
     gemini_key = os.getenv("GEMINI_API_KEY", "")
-    if gemini_key:
+    openrouter_key = os.getenv("OPENROUTER_API_KEY", "")
+
+    if model_choice == "claude-haiku" and openrouter_key:
+        llm_client = openai_pkg.AsyncClient(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_key,
+        )
+        llm = openai.LLM(model="anthropic/claude-3-5-haiku", client=llm_client)
+        logger.info("Using Claude 3.5 Haiku via OpenRouter")
+    elif model_choice == "gpt-4o-mini" and openrouter_key:
+        llm_client = openai_pkg.AsyncClient(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_key,
+        )
+        llm = openai.LLM(model="openai/gpt-4o-mini", client=llm_client)
+        logger.info("Using GPT-4o-mini via OpenRouter")
+    elif gemini_key:
         llm = google.LLM(
-            model=os.getenv("GEMINI_MODEL", "gemini-3-flash-preview"),
+            model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp"),
             api_key=gemini_key,
         )
-        logger.info("Using Gemini LLM (cloud)")
+        logger.info("Using Gemini Flash (cloud)")
     else:
         llm_client = openai_pkg.AsyncClient(
             base_url=os.getenv("OLLAMA_BASE_URL", "http://ollama:11434/v1"),
@@ -207,20 +226,23 @@ async def entrypoint(ctx: agents.JobContext):
     @session.on("agent_speech_committed")
     def _on_agent_speech(msg: llm_module.ChatMessage) -> None:
         assistant_text = msg.text_content or ""
-        if assistant_text and voice_agent._conversation_history:
-            voice_agent._conversation_history.append(f"Assistant: {assistant_text}")
-            last_user = ""
-            for line in reversed(voice_agent._conversation_history):
-                if line.startswith("User:"):
-                    last_user = line
-                    break
-            asyncio.create_task(
-                memory.store_thought(
-                    content=f"{last_user}\nAssistant: {assistant_text}",
-                    session_id=session_id,
-                    source="voice_conversation",
-                )
+        if not assistant_text:
+            return
+        voice_agent._conversation_history.append(f"Assistant: {assistant_text}")
+        last_user = ""
+        for line in reversed(voice_agent._conversation_history):
+            if line.startswith("User:"):
+                last_user = line
+                break
+        content = f"{last_user}\nAssistant: {assistant_text}" if last_user else f"Assistant: {assistant_text}"
+        logger.info("Storing turn to memory (session %s)", session_id[:8])
+        asyncio.create_task(
+            memory.store_thought(
+                content=content,
+                session_id=session_id,
+                source="voice_conversation",
             )
+        )
 
     await session.start(
         room=ctx.room,

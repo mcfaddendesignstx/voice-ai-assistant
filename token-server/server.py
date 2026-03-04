@@ -31,15 +31,21 @@ API_SECRET = os.environ["LIVEKIT_API_SECRET"]
 EXTERNAL_URL = os.environ.get("LIVEKIT_EXTERNAL_URL", "ws://localhost:7880")
 
 
+VALID_MODELS = {"gemini-flash", "claude-haiku", "gpt-4o-mini"}
+
+
 @app.get("/token")
 async def get_token(
     room: str = Query(default="voice-room", description="LiveKit room name"),
     identity: str = Query(default="iphone-user", description="Participant identity"),
+    model: str = Query(default="gemini-flash", description="LLM model: gemini-flash | claude-haiku | gpt-4o-mini"),
 ):
     """
     Returns a JSON object the iOS app uses to connect:
       { "token": "<jwt>", "url": "ws://..." }
     """
+    model = model if model in VALID_MODELS else "gemini-flash"
+
     token = (
         AccessToken(API_KEY, API_SECRET)
         .with_identity(identity)
@@ -55,7 +61,7 @@ async def get_token(
         .with_room_config(
             RoomConfiguration(
                 agents=[
-                    RoomAgentDispatch(agent_name="voice-assistant")
+                    RoomAgentDispatch(agent_name="voice-assistant", metadata=model)
                 ],
             ),
         )
@@ -64,6 +70,7 @@ async def get_token(
     return {
         "token": token.to_jwt(),
         "url": EXTERNAL_URL,
+        "model": model,
     }
 
 

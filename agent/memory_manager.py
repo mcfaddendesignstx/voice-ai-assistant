@@ -282,13 +282,50 @@ class MemoryManager:
                 if f.strip()
             ]
 
+            # Also store a single narrative topic entry so "what did we last talk about?" works
+            topic_task = self._store_topic_summary(conversation_history, session_id)
+
             tasks = [
                 self.store_thought(fact, session_id=session_id, source="session_summary")
                 for fact in facts
                 if len(fact) > 10
             ]
             if tasks:
-                await asyncio.gather(*tasks)
-                logger.info("Stored %d facts from session %s", len(tasks), session_id[:8])
+                await asyncio.gather(*tasks, topic_task)
+                logger.info("Stored %d facts + topic from session %s", len(tasks), session_id[:8])
         except Exception as e:
             logger.warning("Session summarization failed (non-fatal): %s", e)
+
+    async def _store_topic_summary(self, conversation_history: str, session_id: str) -> None:
+        """Store a single narrative sentence describing what the session was about."""
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self._openrouter_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self._metadata_model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": (
+                                    "Summarize this conversation in ONE sentence starting with "
+                                    "'In our last conversation, we discussed...' "
+                                    "Be specific about the topics covered.\n\n"
+                                    f"Conversation:\n{conversation_history}\n\n"
+                                    "One sentence only:"
+                                ),
+                            }
+                        ],
+                        "temperature": 0.3,
+                    },
+                    timeout=15.0,
+                )
+                resp.raise_for_status()
+                topic = resp.json()["choices"][0]["message"]["content"].strip()
+            await self.store_thought(topic, session_id=session_id, source="session_topic")
+        except Exception as e:
+            logger.debug("Topic summary failed (non-fatal): %s", e)
