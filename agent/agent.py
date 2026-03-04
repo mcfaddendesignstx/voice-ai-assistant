@@ -149,15 +149,15 @@ async def entrypoint(ctx: agents.JobContext):
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_key,
         )
-        llm = openai.LLM(model="anthropic/claude-3-5-haiku", client=llm_client)
-        logger.info("Using Claude 3.5 Haiku via OpenRouter")
+        llm = openai.LLM(model="anthropic/claude-haiku-4-5", client=llm_client)
+        logger.info("Using Claude Haiku 4.5 via OpenRouter")
     elif model_choice == "gpt-4o-mini" and openrouter_key:
         llm_client = openai_pkg.AsyncClient(
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_key,
         )
-        llm = openai.LLM(model="openai/gpt-4o-mini", client=llm_client)
-        logger.info("Using GPT-4o-mini via OpenRouter")
+        llm = openai.LLM(model="openai/gpt-4.1-mini", client=llm_client)
+        logger.info("Using GPT-4.1-mini via OpenRouter")
     elif gemini_key:
         llm = google.LLM(
             model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp"),
