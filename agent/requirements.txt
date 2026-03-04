@@ -2,9 +2,16 @@
 livekit-agents[codecs]~=1.0
 # OpenAI-compatible plugin — talks to Ollama, faster-whisper, Kokoro
 livekit-plugins-openai~=1.0
+# Google Gemini LLM — cloud LLM (optional, set GEMINI_API_KEY)
+livekit-plugins-google~=1.0
+# ElevenLabs TTS — high-quality cloud voices (optional, set ELEVENLABS_API_KEY)
+livekit-plugins-elevenlabs~=1.0
 # Silero VAD — detects when the user starts/stops speaking
 livekit-plugins-silero~=1.0
 # Turn detector — improves conversation flow (knows when user is done)
 livekit-plugins-turn-detector~=1.0
 # Env file loading
 python-dotenv~=1.0
+# Persistent memory — Open Brain (Supabase pgvector + OpenRouter)
+supabase>=2.4.0
+httpx>=0.27.0

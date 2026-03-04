@@ -122,6 +122,17 @@ services:
       - KOKORO_BASE_URL=${KOKORO_BASE_URL:-http://kokoro:8880/v1}
       - KOKORO_MODEL=${KOKORO_MODEL:-kokoro}
       - KOKORO_VOICE=${KOKORO_VOICE:-af_heart}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3-flash-preview}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID:-cjVigY5qzO86Huf0OWal}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - MEMORY_ENABLED=${MEMORY_ENABLED:-true}
+      - MEMORY_MATCH_THRESHOLD=${MEMORY_MATCH_THRESHOLD:-0.5}
+      - MEMORY_MATCH_COUNT=${MEMORY_MATCH_COUNT:-5}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

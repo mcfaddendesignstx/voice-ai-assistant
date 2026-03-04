@@ -3,7 +3,7 @@
 	auto_https off
 }
 
-:5173 {
+:8443 {
 	tls cert.pem key.pem
 
 	# Proxy /token to Docker token-server
@@ -11,12 +11,9 @@
 		reverse_proxy localhost:8082
 	}
 
-	# Proxy /lk* to native LiveKit (strips /lk prefix)
+	# Proxy /lk to native LiveKit (strip prefix, forward to root)
 	# Caddy handles WebSocket upgrades automatically
-	handle_path /lk/* {
-		reverse_proxy localhost:7880
-	}
-	handle /lk {
+	handle_path /lk* {
 		reverse_proxy localhost:7880
 	}
 
