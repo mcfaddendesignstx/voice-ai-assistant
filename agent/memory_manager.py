@@ -215,6 +215,33 @@ class MemoryManager:
             logger.warning("Recent thoughts fetch failed (non-fatal): %s", e)
             return []
 
+    async def get_base_profile(self) -> str:
+        """Load core profile entries (claude_memory + top gpt_memory) for direct
+        injection into the agent's base system prompt at session start.
+        This ensures the agent always knows who the user is regardless of query."""
+        if not self.enabled or not self._supabase:
+            return ""
+        try:
+            result = await asyncio.to_thread(
+                lambda: self._supabase.table("thoughts")
+                .select("content")
+                .in_("metadata->>source", ["claude_memory", "gpt_memory"])
+                .order("created_at", desc=False)
+                .limit(30)
+                .execute()
+            )
+            rows = result.data or []
+            if not rows:
+                return ""
+            lines = ["[WHO THE USER IS — loaded from persistent memory]"]
+            for r in rows:
+                lines.append(f"- {r['content']}")
+            lines.append("[END PROFILE]")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.warning("Base profile load failed (non-fatal): %s", e)
+            return ""
+
     async def build_memory_context(self, query: str, current_session_id: Optional[str] = None) -> str:
         """Build memory context block to prepend to system prompt.
         Combines semantic search results with most recent session_topic entries."""

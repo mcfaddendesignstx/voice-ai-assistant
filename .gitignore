@@ -42,3 +42,12 @@ web-test/
 .idea/
 .vscode/
 *.swp
+
+# Personal memory data (never commit)
+Claude Memory.md
+GPT Memory.md
+
+# Temp/utility scripts
+import_memories.py
+run_schema.py
+test_memory.py

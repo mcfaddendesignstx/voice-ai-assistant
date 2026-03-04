@@ -72,12 +72,14 @@ class VoiceAssistant(Agent):
     Memory context is injected before each LLM call via on_user_turn_completed.
     """
 
-    def __init__(self, memory: MemoryManager, session_id: str) -> None:
+    def __init__(self, memory: MemoryManager, session_id: str, base_profile: str = "") -> None:
         now = datetime.now(timezone.utc).astimezone()
         instructions = (
             f"Current date and time: {now.strftime('%A, %B %d, %Y at %I:%M %p %Z')}.\n\n"
             + _BASE_INSTRUCTIONS
         )
+        if base_profile:
+            instructions = base_profile + "\n\n" + instructions
         super().__init__(instructions=instructions)
         self._memory = memory
         self._session_id = session_id
@@ -219,7 +221,10 @@ async def entrypoint(ctx: agents.JobContext):
         vad=vad,
     )
 
-    voice_agent = VoiceAssistant(memory=memory, session_id=session_id)
+    base_profile = await memory.get_base_profile()
+    if base_profile:
+        logger.info("Loaded base profile (%d chars) into system prompt", len(base_profile))
+    voice_agent = VoiceAssistant(memory=memory, session_id=session_id, base_profile=base_profile)
 
     # Hook: after each agent reply, store the exchange in background
     @session.on("agent_speech_committed")
