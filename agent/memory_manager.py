@@ -141,6 +141,66 @@ class MemoryManager:
             logger.debug("Metadata extraction failed (non-fatal): %s", e)
             return {"type": "fact", "confidence": 0.7, "topics": [], "people": [], "action_items": []}
 
+    async def classify_imported_memory(self, content: str, source: str = "gpt_memory") -> dict:
+        """Specialized classifier for pre-confirmed memory exports (GPT/Claude).
+        Unlike extract_metadata(), this:
+        - Treats all content as user-confirmed (confidence 0.9+)
+        - Never speculates or infers — only classifies what is explicitly stated
+        - Knows the export context so it doesn't penalize lack of conversational cues"""
+        try:
+            source_label = "OpenAI ChatGPT" if source == "gpt_memory" else "Claude"
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self._openrouter_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self._metadata_model,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": (
+                                    f"You are classifying a confirmed memory exported from {source_label}. "
+                                    "The user explicitly saved this to their AI memory — it is a verified fact, "
+                                    "preference, or detail about them. Do NOT speculate or infer beyond what is written."
+                                ),
+                            },
+                            {
+                                "role": "user",
+                                "content": (
+                                    "Classify this confirmed memory. Return ONLY valid JSON with these fields:\n"
+                                    "- type: one of [fact, preference, relationship, principle, commitment, moment, skill]\n"
+                                    "  fact=objective info about the user, preference=what they like/dislike/want,\n"
+                                    "  relationship=info about people in their life, principle=values/beliefs they hold,\n"
+                                    "  commitment=something they plan or promised, moment=notable event/experience,\n"
+                                    "  skill=ability or expertise they have\n"
+                                    "- confidence: float. Use 0.95 if a single clear fact. Use 0.90 if it covers "
+                                    "multiple items or is slightly compound. Never go below 0.85 for confirmed exports.\n"
+                                    "- topics: array of 1-3 topic strings\n"
+                                    "- people: array of person names mentioned (empty if none)\n\n"
+                                    f"Memory: {content}\n\nJSON only, no explanation:"
+                                ),
+                            },
+                        ],
+                        "temperature": 0.1,
+                    },
+                    timeout=10.0,
+                )
+                resp.raise_for_status()
+                raw = resp.json()["choices"][0]["message"]["content"].strip()
+                if raw.startswith("```"):
+                    raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+                data = json.loads(raw)
+                if "confidence" not in data:
+                    data["confidence"] = 0.92
+                data["action_items"] = []
+                return data
+        except Exception as e:
+            logger.debug("Imported memory classification failed (non-fatal): %s", e)
+            return {"type": "fact", "confidence": 0.92, "topics": [], "people": [], "action_items": []}
+
     # ── Storage ────────────────────────────────────────────────────
 
     async def store_thought(
