@@ -1,0 +1,28 @@
+{
+	# Use self-signed cert for LAN testing
+	auto_https off
+}
+
+:5173 {
+	tls cert.pem key.pem
+
+	# Proxy /token to Docker token-server
+	handle /token* {
+		reverse_proxy localhost:8082
+	}
+
+	# Proxy /lk* to native LiveKit (strips /lk prefix)
+	# Caddy handles WebSocket upgrades automatically
+	handle_path /lk/* {
+		reverse_proxy localhost:7880
+	}
+	handle /lk {
+		reverse_proxy localhost:7880
+	}
+
+	# Serve web test page
+	handle {
+		root * web-test
+		file_server
+	}
+}

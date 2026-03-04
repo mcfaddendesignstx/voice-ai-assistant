@@ -24,6 +24,17 @@ ollama_data/
 livekit-bin/
 livekit-server.zip
 
+# Caddy reverse proxy (downloaded, not tracked)
+caddy-bin/
+caddy.zip
+
+# Self-signed TLS certs (generated, not tracked)
+cert.pem
+key.pem
+
+# Firewall helper script (local only)
+open-firewall.ps1
+
 # Web test page (dev only)
 web-test/
 
