@@ -184,6 +184,7 @@ async def entrypoint(ctx: agents.JobContext):
             voice_id=os.getenv("ELEVENLABS_VOICE_ID", "cjVigY5qzO86Huf0OWal"),
             model="eleven_flash_v2_5",
             api_key=elevenlabs_key,
+            auto_mode=True,
             language="en",
         )
         logger.info("Using ElevenLabs TTS (cloud)")
