@@ -12,7 +12,21 @@ struct SettingsView: View {
     @Environment(RoomManager.self) private var roomManager
     @Environment(ChatViewModel.self) private var chatViewModel
     @State private var tokenURL: String = AppConfig.tokenServerURL
+    @State private var selectedModel: String = AppConfig.selectedModel
+    @State private var selectedTTS: String = AppConfig.selectedTTS
     @State private var showSaved: Bool = false
+
+    private let llmOptions = [
+        ("gemini-flash", "Gemini Flash", "Google — fastest"),
+        ("claude-haiku", "Claude Haiku", "Anthropic via OpenRouter"),
+        ("gpt-4o-mini", "GPT-4.1 Mini", "OpenAI via OpenRouter"),
+    ]
+
+    private let ttsOptions = [
+        ("kokoro", "Kokoro", "Local — fast, lightweight"),
+        ("qwen3-tts", "Qwen3-TTS", "Local — expressive, GPU"),
+        ("elevenlabs", "ElevenLabs", "Cloud — premium quality"),
+    ]
 
     var body: some View {
         NavigationStack {
@@ -37,12 +51,71 @@ struct SettingsView: View {
                          + "Use your PC's local IP for Wi-Fi, or Tailscale IP for remote access.")
                 }
 
+                // ── LLM Model Picker ────────────────────────────
+                Section {
+                    ForEach(llmOptions, id: \.0) { option in
+                        Button {
+                            selectedModel = option.0
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(option.1)
+                                        .foregroundStyle(.primary)
+                                    Text(option.2)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if selectedModel == option.0 {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.blue)
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("LLM Model")
+                } footer: {
+                    Text("Choose the AI model for conversation. Takes effect on next connection.")
+                }
+
+                // ── TTS Engine Picker ───────────────────────────
+                Section {
+                    ForEach(ttsOptions, id: \.0) { option in
+                        Button {
+                            selectedTTS = option.0
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(option.1)
+                                        .foregroundStyle(.primary)
+                                    Text(option.2)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if selectedTTS == option.0 {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.blue)
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Voice Engine")
+                } footer: {
+                    Text("Choose the text-to-speech engine. Kokoro is fast, Qwen3-TTS is more expressive, ElevenLabs is cloud-based premium.")
+                }
+
                 // ── Save Button ─────────────────────────────────
                 Section {
                     Button {
                         AppConfig.tokenServerURL = tokenURL
+                        AppConfig.selectedModel = selectedModel
+                        AppConfig.selectedTTS = selectedTTS
                         showSaved = true
-                        // Auto-hide the confirmation after 2 seconds
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                             showSaved = false
                         }
@@ -82,7 +155,7 @@ struct SettingsView: View {
                 // ── About ───────────────────────────────────────
                 Section {
                     LabeledContent("App", value: "Voice Assistant")
-                    LabeledContent("Architecture", value: "LiveKit + Ollama + Whisper + Kokoro")
+                    LabeledContent("Architecture", value: "LiveKit + Gemini/Claude/GPT + Whisper + Kokoro/Qwen3/ElevenLabs")
                 } header: {
                     Text("About")
                 }

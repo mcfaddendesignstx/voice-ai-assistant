@@ -49,5 +49,6 @@ GPT Memory.md
 
 # Temp/utility scripts
 import_memories.py
+backfill_metadata.py
 run_schema.py
 test_memory.py

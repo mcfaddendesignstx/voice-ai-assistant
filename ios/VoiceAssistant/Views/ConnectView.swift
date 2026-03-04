@@ -30,8 +30,8 @@ struct ConnectView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                // Server info
-                VStack(spacing: 8) {
+                // Server info + current selections
+                VStack(spacing: 12) {
                     Label("Token Server", systemImage: "server.rack")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -40,6 +40,25 @@ struct ConnectView: View {
                         .font(.system(.callout, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
+
+                    Divider()
+
+                    HStack(spacing: 24) {
+                        VStack(spacing: 4) {
+                            Text("LLM")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(AppConfig.selectedModel)
+                                .font(.caption.bold())
+                        }
+                        VStack(spacing: 4) {
+                            Text("Voice")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(AppConfig.selectedTTS)
+                                .font(.caption.bold())
+                        }
+                    }
                 }
                 .padding()
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))

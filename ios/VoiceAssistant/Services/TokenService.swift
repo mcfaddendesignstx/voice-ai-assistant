@@ -44,6 +44,8 @@ struct TokenService {
         components.queryItems = [
             URLQueryItem(name: "room", value: room),
             URLQueryItem(name: "identity", value: identity),
+            URLQueryItem(name: "model", value: AppConfig.selectedModel),
+            URLQueryItem(name: "tts", value: AppConfig.selectedTTS),
         ]
         guard let url = components.url else {
             throw TokenServiceError.invalidURL

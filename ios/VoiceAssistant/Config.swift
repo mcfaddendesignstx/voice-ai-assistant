@@ -25,6 +25,18 @@ enum AppConfig {
         }
     }
 
+    // LLM model selector — persisted via UserDefaults.
+    static var selectedModel: String {
+        get { UserDefaults.standard.string(forKey: "selectedModel") ?? "gemini-flash" }
+        set { UserDefaults.standard.set(newValue, forKey: "selectedModel") }
+    }
+
+    // TTS engine selector — persisted via UserDefaults.
+    static var selectedTTS: String {
+        get { UserDefaults.standard.string(forKey: "selectedTTS") ?? "kokoro" }
+        set { UserDefaults.standard.set(newValue, forKey: "selectedTTS") }
+    }
+
     // Default room name — all participants in the same room hear each other.
     // The agent auto-joins any room, so this just needs to be consistent.
     static let defaultRoomName = "voice-room"

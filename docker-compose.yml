@@ -88,6 +88,33 @@ services:
       retries: 20
       start_period: 120s
 
+  # ── Qwen3-TTS ────────────────────────────────────────────────
+  # Text-to-Speech via OpenAI-compatible /v1/audio/speech.
+  # Model: Qwen3-TTS-12Hz-0.6B-CustomVoice (GPU, bfloat16).
+  # Optional — only needed if user selects "qwen3-tts" in the UI.
+  qwen3-tts:
+    build: ./qwen3-tts
+    environment:
+      - QWEN3_TTS_MODEL=${QWEN3_TTS_MODEL:-Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice}
+      - QWEN3_TTS_DEVICE=cuda:0
+      - QWEN3_TTS_SPEAKER=${QWEN3_TTS_SPEAKER:-Ethan}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - voice-ai
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8890/health')\" 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 180s
+
   # ── Token Server ───────────────────────────────────────────────
   # Lightweight FastAPI service that mints LiveKit JWTs.
   # The iOS app calls this before connecting to LiveKit.
@@ -121,7 +148,9 @@ services:
       - WHISPER_MODEL=${WHISPER_MODEL:-Systran/faster-whisper-large-v3}
       - KOKORO_BASE_URL=${KOKORO_BASE_URL:-http://kokoro:8880/v1}
       - KOKORO_MODEL=${KOKORO_MODEL:-kokoro}
-      - KOKORO_VOICE=${KOKORO_VOICE:-af_heart}
+      - KOKORO_VOICE=${KOKORO_VOICE:-am_adam}
+      - QWEN3_TTS_BASE_URL=${QWEN3_TTS_BASE_URL:-http://qwen3-tts:8890/v1}
+      - QWEN3_TTS_VOICE=${QWEN3_TTS_VOICE:-ethan}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3-flash-preview}
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}

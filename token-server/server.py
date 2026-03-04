@@ -11,6 +11,7 @@ Environment variables (from docker-compose):
 """
 
 import os
+import json
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,6 +33,7 @@ EXTERNAL_URL = os.environ.get("LIVEKIT_EXTERNAL_URL", "ws://localhost:7880")
 
 
 VALID_MODELS = {"gemini-flash", "claude-haiku", "gpt-4o-mini"}
+VALID_TTS = {"kokoro", "qwen3-tts", "elevenlabs"}
 
 
 @app.get("/token")
@@ -39,12 +41,17 @@ async def get_token(
     room: str = Query(default="voice-room", description="LiveKit room name"),
     identity: str = Query(default="iphone-user", description="Participant identity"),
     model: str = Query(default="gemini-flash", description="LLM model: gemini-flash | claude-haiku | gpt-4o-mini"),
+    tts: str = Query(default="kokoro", description="TTS engine: kokoro | qwen3-tts | elevenlabs"),
 ):
     """
     Returns a JSON object the iOS app uses to connect:
       { "token": "<jwt>", "url": "ws://..." }
     """
     model = model if model in VALID_MODELS else "gemini-flash"
+    tts = tts if tts in VALID_TTS else "kokoro"
+
+    # Pack both selections into metadata JSON for the agent
+    metadata = json.dumps({"model": model, "tts": tts})
 
     token = (
         AccessToken(API_KEY, API_SECRET)
@@ -61,7 +68,7 @@ async def get_token(
         .with_room_config(
             RoomConfiguration(
                 agents=[
-                    RoomAgentDispatch(agent_name="voice-assistant", metadata=model)
+                    RoomAgentDispatch(agent_name="voice-assistant", metadata=metadata)
                 ],
             ),
         )
@@ -71,6 +78,7 @@ async def get_token(
         "token": token.to_jwt(),
         "url": EXTERNAL_URL,
         "model": model,
+        "tts": tts,
     }
 
 

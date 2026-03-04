@@ -139,9 +139,16 @@ async def entrypoint(ctx: agents.JobContext):
         client=stt_client,
     )
 
-    # --- LLM: route by model selector (gemini-flash | claude-haiku | gpt-4o-mini) ---
-    model_choice = (getattr(ctx.job, "metadata", None) or "").strip() or "gemini-flash"
-    logger.info("Model selected: %s", model_choice)
+    # --- Parse metadata JSON from token server (model + tts selectors) ---
+    raw_metadata = (getattr(ctx.job, "metadata", None) or "").strip()
+    try:
+        import json as _json
+        meta = _json.loads(raw_metadata)
+    except Exception:
+        meta = {}
+    model_choice = meta.get("model", raw_metadata or "gemini-flash")
+    tts_choice = meta.get("tts", "kokoro")
+    logger.info("Model selected: %s  TTS selected: %s", model_choice, tts_choice)
 
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     openrouter_key = os.getenv("OPENROUTER_API_KEY", "")
@@ -179,9 +186,9 @@ async def entrypoint(ctx: agents.JobContext):
         )
         logger.info("Using Ollama LLM (local)")
 
-    # --- TTS: ElevenLabs (cloud) or Kokoro (local fallback) ---
+    # --- TTS: route by selector (kokoro | qwen3-tts | elevenlabs) ---
     elevenlabs_key = os.getenv("ELEVENLABS_API_KEY", "")
-    if elevenlabs_key:
+    if tts_choice == "elevenlabs" and elevenlabs_key:
         tts = elevenlabs.TTS(
             voice_id=os.getenv("ELEVENLABS_VOICE_ID", "cjVigY5qzO86Huf0OWal"),
             model="eleven_flash_v2_5",
@@ -190,6 +197,21 @@ async def entrypoint(ctx: agents.JobContext):
             language="en",
         )
         logger.info("Using ElevenLabs TTS (cloud)")
+    elif tts_choice == "qwen3-tts":
+        qwen_base = os.getenv("QWEN3_TTS_BASE_URL", "http://qwen3-tts:8890/v1")
+        tts_client = openai_pkg.AsyncClient(
+            base_url=qwen_base,
+            api_key="not-needed",
+            timeout=_timeout,
+        )
+        tts = openai.TTS(
+            model="qwen3-tts",
+            voice=os.getenv("QWEN3_TTS_VOICE", "ethan"),
+            base_url=qwen_base,
+            api_key="not-needed",
+            client=tts_client,
+        )
+        logger.info("Using Qwen3-TTS (local)")
     else:
         tts_client = openai_pkg.AsyncClient(
             base_url=os.getenv("KOKORO_BASE_URL", "http://kokoro:8880/v1"),
