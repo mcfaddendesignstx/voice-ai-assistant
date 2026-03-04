@@ -160,7 +160,7 @@ async def entrypoint(ctx: agents.JobContext):
         logger.info("Using GPT-4.1-mini via OpenRouter")
     elif gemini_key:
         llm = google.LLM(
-            model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp"),
+            model=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
             api_key=gemini_key,
         )
         logger.info("Using Gemini Flash (cloud)")
