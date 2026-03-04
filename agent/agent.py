@@ -206,7 +206,7 @@ async def entrypoint(ctx: agents.JobContext):
         )
         tts = openai.TTS(
             model="qwen3-tts",
-            voice=os.getenv("QWEN3_TTS_VOICE", "ethan"),
+            voice=os.getenv("QWEN3_TTS_VOICE", "aiden"),
             base_url=qwen_base,
             api_key="not-needed",
             client=tts_client,
