@@ -1,8 +1,10 @@
-# Voice AI Assistant — Self-Hosted, Open Source
+# Voice AI Assistant — Self-Hosted, Persistent Memory
 
-A ChatGPT Voice Mode alternative you own and control. Real-time bidirectional
-voice chat between a native iOS app and a local AI stack running on your
-Windows PC with an NVIDIA GPU.
+> *Built entirely through AI-assisted pair programming by someone with no coding background.*
+
+A private voice AI assistant that runs on your home PC, remembers everything across sessions, and lets you talk to Claude, GPT, or Gemini — without giving your conversations to anyone.
+
+This is a ChatGPT Voice Mode alternative you actually own. Your speech is transcribed locally on your GPU. Your memories are stored in your own database. You choose which AI model responds. Nothing is logged by a third party.
 
 ```
 ┌─────────────────┐     WebRTC      ┌──────────────────┐
@@ -23,17 +25,34 @@ Windows PC with an NVIDIA GPU.
                               └───────┘ └──────┘ └──────────┘
 ```
 
+## What It Does
+
+- **Talks back in real time** — sub-second voice response using local GPU speech synthesis
+- **Remembers everything** — every session is stored as semantic vector embeddings in Supabase. Ask it what you talked about last week and it knows.
+- **Model selector** — switch between Gemini 2.0 Flash, Claude Haiku 4.5, or GPT-4.1 Mini per session
+- **100% local speech pipeline** — Whisper STT and Kokoro TTS run on your GPU, never leave your machine
+- **Browser + iOS client** — connect from `web-test/index.html` in any browser, or build the SwiftUI app
+
+## How the Memory Works
+
+Every conversation is stored in a Supabase PostgreSQL database with the `pgvector` extension. When you speak, your query is embedded into 1,536-dimensional vector space and compared against everything stored. The closest semantic matches are injected into the AI's context before it responds — so it can recall facts from months ago as naturally as facts from five minutes ago.
+
+This is the same architecture used by production AI memory products, running entirely on infrastructure you control.
+
 ## Tech Stack
 
 | Component | Technology | Role |
 |-----------|-----------|------|
-| **Media Server** | [LiveKit](https://livekit.io/) (Docker) | WebRTC routing between iPhone and Agent |
-| **Voice Agent** | [LiveKit Agents](https://docs.livekit.io/agents/) (Python) | Orchestrates STT → LLM → TTS pipeline |
-| **LLM** | [Ollama](https://ollama.ai/) (GPU) | Local language model inference |
-| **STT** | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (GPU) | Speech-to-Text |
-| **TTS** | [Kokoro](https://github.com/remsky/Kokoro-FastAPI) (GPU) | Text-to-Speech |
-| **Token Server** | FastAPI (Python) | Mints LiveKit JWTs for the iOS app |
-| **iOS App** | SwiftUI + LiveKit Swift SDK | Native voice + text chat client |
+| **Media Server** | [LiveKit](https://livekit.io/) (Docker) | WebRTC real-time voice streaming |
+| **Voice Agent** | [LiveKit Agents](https://docs.livekit.io/agents/) (Python) | STT → LLM → TTS pipeline |
+| **LLM** | Gemini / Claude / GPT via [OpenRouter](https://openrouter.ai/) | Selectable per session |
+| **STT** | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (GPU) | Local speech-to-text |
+| **TTS** | [Kokoro](https://github.com/remsky/Kokoro-FastAPI) (GPU) / ElevenLabs | Local or cloud voice synthesis |
+| **Memory** | [Supabase](https://supabase.com/) + pgvector | Persistent semantic memory store |
+| **Embeddings** | OpenRouter `text-embedding-3-small` | 1,536-dim vectors for memory retrieval |
+| **Token Server** | FastAPI (Python) | Mints LiveKit JWTs, passes model choice to agent |
+| **Web Client** | Vanilla HTML/JS + LiveKit SDK | Browser-based voice interface |
+| **iOS App** | SwiftUI + LiveKit Swift SDK | Native iPhone client (requires Mac to build) |
 
 ## Hardware Requirements
 
