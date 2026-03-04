@@ -93,7 +93,7 @@ class VoiceAssistant(Agent):
             return
 
         # Retrieve memories (targets < 100 ms)
-        memory_context = await self._memory.build_memory_context(user_text)
+        memory_context = await self._memory.build_memory_context(user_text, current_session_id=self._session_id)
         if memory_context:
             turn_ctx.add_message(role="system", content=memory_context)
             logger.info("Injected memory context (%d chars)", len(memory_context))

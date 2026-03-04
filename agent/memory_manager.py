@@ -188,33 +188,43 @@ class MemoryManager:
             logger.warning("Thought retrieval failed (non-fatal): %s", e)
             return []
 
-    async def retrieve_recent_thoughts(self, limit: int = 3) -> list[dict]:
-        """Fetch the most recent thoughts by created_at — regardless of semantic match."""
+    async def retrieve_recent_thoughts(
+        self, limit: int = 3, exclude_session_id: Optional[str] = None
+    ) -> list[dict]:
+        """Fetch the most recent session_topic entries — narrative summaries only,
+        excluding the current session so current-session noise is filtered out."""
         if not self.enabled or not self._supabase:
             return []
         try:
-            result = await asyncio.to_thread(
-                lambda: self._supabase.table("thoughts")
+            q = (
+                self._supabase.table("thoughts")
                 .select("id, content, metadata, created_at")
+                .eq("metadata->>source", "session_topic")
                 .order("created_at", desc=True)
                 .limit(limit)
-                .execute()
             )
-            return result.data or []
+            result = await asyncio.to_thread(lambda: q.execute())
+            rows = result.data or []
+            if exclude_session_id:
+                rows = [
+                    r for r in rows
+                    if str((r.get("metadata") or {}).get("session_id", "")) != exclude_session_id
+                ]
+            return rows
         except Exception as e:
             logger.warning("Recent thoughts fetch failed (non-fatal): %s", e)
             return []
 
-    async def build_memory_context(self, query: str) -> str:
+    async def build_memory_context(self, query: str, current_session_id: Optional[str] = None) -> str:
         """Build memory context block to prepend to system prompt.
-        Combines semantic search results with most recent thoughts."""
+        Combines semantic search results with most recent session_topic entries."""
         if not self.enabled:
             return ""
 
         # Run semantic search + recency fetch in parallel
         semantic, recent = await asyncio.gather(
             self.retrieve_relevant_thoughts(query),
-            self.retrieve_recent_thoughts(limit=3),
+            self.retrieve_recent_thoughts(limit=3, exclude_session_id=current_session_id),
         )
 
         # Merge, deduplicate by id, semantic results first
