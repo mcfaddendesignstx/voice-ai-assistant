@@ -196,7 +196,7 @@ async def entrypoint(ctx: agents.JobContext):
         )
         tts = openai.TTS(
             model=os.getenv("KOKORO_MODEL", "kokoro"),
-            voice=os.getenv("KOKORO_VOICE", "af_heart"),
+            voice=os.getenv("KOKORO_VOICE", "am_adam"),
             base_url=os.getenv("KOKORO_BASE_URL", "http://kokoro:8880/v1"),
             api_key="not-needed",
             client=tts_client,
